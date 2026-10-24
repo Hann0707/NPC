@@ -1,0 +1,18 @@
+# 统一使用 LF，避免 Windows/Linux 之间出现整文件换行差异
+* text=auto eol=lf
+
+*.v     text eol=lf
+*.vh    text eol=lf
+*.sv    text eol=lf
+*.c     text eol=lf
+*.h     text eol=lf
+*.cpp   text eol=lf
+*.mk    text eol=lf
+Makefile text eol=lf
+*.sh    text eol=lf
+
+# 二进制文件不做换行转换
+*.exe   binary
+*.png   binary
+*.jpg   binary
+*.pdf   binary

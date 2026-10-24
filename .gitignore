@@ -1,0 +1,53 @@
+# ===== Verilator / C++ 构建产物 =====
+/obj_dir/
+*.o
+*.a
+*.d
+*.so
+*.so.*
+
+# 如果 Verilator 在仓库根目录生成模型文件
+/V*.cpp
+/V*.h
+/V*.mk
+/V*.d
+
+# ===== 可执行文件与仿真输出 =====
+/sim
+*.exe
+*.vcd
+*.fst
+*.vpd
+*.saif
+*.gtkw
+*.wave
+*.log
+
+# ===== 崩溃转储 =====
+core
+core.*
+*.core
+
+# ===== 编辑器 / 操作系统 =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Python =====
+__pycache__/
+*.pyc
+
+# ===== 其他构建目录 =====
+/build/
+/dist/
+
+# 以后生成的测试产物，按需取消注释
+# *.elf
+# *.bin
+# *.hex
+# *.dump
