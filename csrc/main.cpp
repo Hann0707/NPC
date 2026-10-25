@@ -5,6 +5,12 @@
 static uint8_t mem[1 << 20];
 static uint32_t mem_base = 0x80000000u;
 static uint32_t mem_size = sizeof(mem);
+static bool is_ebreak = false;
+static uint32_t dbgpc= 0;
+extern "C" void npc_ebreak(int pc){
+    is_ebreak = true;
+    dbgpc =  (uint32_t)pc;
+}
  extern "C" int pmem_read(int addr)
  {
     uint32_t raddr = (uint32_t)addr - mem_base;
@@ -36,25 +42,25 @@ static uint32_t mem_size = sizeof(mem);
     top ->clk = 0;
     top ->eval();
     top ->rst = 0;
-    for(int i = 0;i<3;i++){
-        printf("cycle = %d, pc = :%08x, inst = %08x\n", i, top ->pc, top ->inst);
-        for(int j = 0;j<4;j++){
-            top->dbg_raddr = j;
-            top->eval();
-            printf("reg[%d] = %08x\n", j, top->dbg_rdata);
-        }
+    int maxcycle = 10000;
+    int cycle = 0;
+    
+    while(!is_ebreak && cycle<maxcycle){
         top ->clk = 1;
         top ->eval();
         top ->clk = 0;
         top ->eval();
+        cycle++;
+        
     }
-    for(int m = 0;m<4;m++){
-            top->dbg_raddr = m;
-            top->eval();
-            printf("final,reg[%d] = %08x\n", m, top->dbg_rdata);
-        }
+    if(is_ebreak){
+        printf("ebreak at pc = 0x%08x\n", dbgpc);
+    }
+    else{
+        printf("max cycle reached\n");
+    }
 
-    delete top;
+    
       
       return 0;
 

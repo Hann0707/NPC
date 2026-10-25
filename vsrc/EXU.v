@@ -18,7 +18,7 @@ module EXU (
 
 assign jalr_pc = (imm+data1) & ~32'd1;
 
-assign exudata = (alu_src_imm == 1'b1) ? data1+imm : data1+data2;
+assign exudata = (alu_src_imm == 1'b1) ? ((alu_op == 2'b00)? imm : data1+imm) : data1+data2;
 
 
 
