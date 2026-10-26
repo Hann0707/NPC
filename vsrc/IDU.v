@@ -55,7 +55,7 @@ assign size = (is_lw | is_sw) ? 1'b1 : 1'b0; //1:word, 0:byte
   assign is_lw = (opcode == 7'b0000011) & (funct3 == 3'b010);
   assign is_sw = (opcode == 7'b0100011) & (funct3 == 3'b010);
   assign is_lbu = (opcode == 7'b0000011) & (funct3 == 3'b100);
-  assign is_sb = (opcode == 7'b0100011) & (funct3 == 3'b100);
+  assign is_sb = (opcode == 7'b0100011) & (funct3 == 3'b000);
 
   assign reg_wen = is_addi | is_jalr | is_lui | is_add | is_lw | is_lbu;
   assign alu_op = (is_addi | is_jalr |is_add | is_lw | is_lbu| is_sb|is_sw) ? 2'b01 : 2'b00;//00lui, 01加法
