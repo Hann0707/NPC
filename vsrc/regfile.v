@@ -17,8 +17,9 @@ module RegisterFile #(ADDR_WIDTH = 1, DATA_WIDTH = 1) (
   always @(posedge clk) begin
     if (wen && waddr != 0) begin
       rf[waddr] <= wdata;
+      
     end
-    $display("x%0d <= %0d", waddr, wdata);
+    
   end
   assign rdata1 = (raddr1 ==0) ? {DATA_WIDTH{1'b0}}:rf[raddr1];
   assign rdata2 = (raddr2 ==0) ? {DATA_WIDTH{1'b0}}:rf[raddr2];

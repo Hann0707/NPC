@@ -2,12 +2,61 @@
 #include "verilated.h"
 #include <cstdio>
 #include <cstdint>
-static uint8_t mem[1 << 20];
+#include <cstring>
+#include <cstdlib>//为了用rand函数
+#include <sys/time.h>
+
+extern "C"{
+    uint32_t uart_status = 0;
+}
+extern "C" {
+    long long hi;
+    long long lo;
+}
+static uint8_t mem[128 << 20];
 static uint32_t mem_base = 0x80000000u;
 static uint32_t mem_size = sizeof(mem);
 static bool is_ebreak = false;
+bool emu_load_bin(const char *path);
+void inst_cycle (int *end);
+uint32_t *get_ref();
+uint32_t get_pc();
+uint8_t *get_mem();
+static struct timeval root;
+static uint64_t sim_cycle = 0;
+static const uint64_t NPC_FREQ = 463ULL * 1000 * 1000;
+unsigned long long get_time(){
+   return sim_cycle / (NPC_FREQ / 1000000);
+}
+int check_regs(uint32_t *dut_ptr, uint32_t *ref_ptr)//检查寄存器是否一致
+{
+    bool is_diff = 0;
+
+    for (int i = 0; i < 16; i++) {
+        
+        if (dut_ptr[i] != ref_ptr[i]) {
+            printf("r%d different: dut=0x%08x ref=0x%08x\n", i, dut_ptr[i], ref_ptr[i]);
+            is_diff = 1;
+        }
+    }
+
+    return is_diff;
+}
+
 static uint32_t dbgpc= 0;
-    extern "C" void pmem_write(int waddr, int wdata ,char wmask){
+    extern "C" void pmem_write(int waddr, int wdata ,char wmask)//写内存函数, waddr是地址, wdata是数据, wmask是掩码
+    {
+        if(waddr<mem_base)
+        {
+            if(waddr == 0x10000000u){
+                fputc(wdata & 0xff,stderr);
+            }
+            return;//其他mmio先忽略
+        }
+        if (waddr >= mem_base + mem_size) {
+            return;// 超出内存范围
+        }
+    else {
         uint32_t off = (((uint32_t)waddr  - mem_base)) & ~3u;//抹掉低两位
         uint32_t data = (uint32_t)wdata;
         uint8_t mask = (uint8_t)wmask;
@@ -18,65 +67,76 @@ static uint32_t dbgpc= 0;
             }
         }
     }
+}
  extern "C" void npc_ebreak(int pc){
     is_ebreak = true;
     dbgpc =  (uint32_t)pc;
 }
  extern "C" int pmem_read(int addr)
  {
+    
     uint32_t raddr = (uint32_t)addr - mem_base;
+    
+    if (addr == 0x10000004u) {  // 读出UART状态
+        uart_status = (rand() & 0x7) == 0 ? 1 : 0; // 就绪概率为12.5%
+        return (int)uart_status;
+            
+    }
+    else if(addr == 0x20000000u){
+        lo = get_time() & 0xffffffffu;
+        
+        return lo;
+    }
+    else if(addr == 0x20000004u){
+        
+        hi = get_time()>>32;
+        return hi;
+    }
+
     if (addr < mem_base || addr >= mem_base + mem_size) {
       
       return 0;
     }
     uint32_t off = raddr & ~3u;//抹掉低两位
-    return mem[off] | (mem[off + 1] << 8) | (mem[off + 2] << 16) | (mem[off + 3] << 24);
+    return mem[off] | (mem[off + 1] << 8) | (mem[off + 2] << 16) | (mem[off + 3] << 24);//小端序读取内存
     
  }
  //假如data = 0x12345678, addr = 0x00000000, 那么mem[0] = 0x78, mem[1] = 0x56, mem[2] = 0x34, mem[3] = 0x12
  static void load_word(uint32_t addr, uint32_t data) {
       for (int i = 0; i < 4; i++)
-          mem[addr - mem_base + i] = (data >> (8 * i)) & 0xff;//0xff就是取低8位
+          mem[addr - mem_base + i] = (data >> (8 * i)) & 0xff;//0xff就是取低8位,小端序放内存
   }
+  // 在 load_word 后面加
+static bool load_bin(const char *path) {
+    FILE *fp = fopen(path, "rb");
+    if (!fp) { perror("fopen"); return false; }
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    if (size < 0 || (size_t)size > mem_size) { fclose(fp); return false; }
+    size_t n = fread(mem, 1, (size_t)size, fp);   // 文件第0字节 -> mem[0]
+    fclose(fp);
+    printf("loaded %zu bytes to 0x%08x\n", n, mem_base);
+    return n == (size_t)size;
+}
+
   Vtop *top;
   int main(int argc, char **argv) {
+    gettimeofday(&root, NULL);
     Vtop dut;
     top = &dut;
-
-    const uint32_t prog[] = {
-        0x800000B7,  // 00: lui   x1, 0x80000
-        0x20008093,  // 04: addi  x1, x1, 0x200
-        0x00500113,  // 08: addi  x2, x0, 5
-        0x00700193,  // 0c: addi  x3, x0, 7
-        0x00310233,  // 10: add   x4, x2, x3
-        0x0000A283,  // 14: lw    x5, 0(x1)
-        0x0040A223,  // 18: sw    x4, 4(x1)
-        0x0040A303,  // 1c: lw    x6, 4(x1)
-        0x0080C383,  // 20: lbu   x7, 8(x1)
-        0x0090C403,  // 24: lbu   x8, 9(x1)
-        0x00A0C483,  // 28: lbu   x9, 10(x1)
-        0x00B0C503,  // 2c: lbu   x10, 11(x1)
-        0x00608023,  // 30: sb    x6, 0(x1)
-        0x0000A583,  // 34: lw    x11, 0(x1)
-        0x002080A3,  // 38: sb    x2, 1(x1)
-        0x0010C603,  // 3c: lbu   x12, 1(x1)
-        0x800006B7,  // 40: lui   x13, 0x80000
-        0x05868693,  // 44: addi  x13, x13, 0x58
-        0x00068767,  // 48: jalr  x14, 0(x13)
-        0x07B00793,  // 4c: addi  x15, x0, 123   (应被跳过)
-        0x00000013,  // 50: nop
-        0x00000013,  // 54: nop
-        0x00100073,  // 58: ebreak
-    };
-
-    for (unsigned i = 0; i < sizeof(prog) / sizeof(prog[0]); i++) {
-        load_word(0x80000000u + 4 * i, prog[i]);
+    const char *bin = (argc >1) ? argv[1] : "/home/utg/ysyx-workbench/am-kernels/tests/cpu-tests/build/dummy-minirv-npc.bin";
+    if(!load_bin(bin))
+    {
+        
+        
+        return 1;
     }
-
-    // 数据区
-    load_word(0x80000200, 0x12345678);
-    load_word(0x80000208, 0xAABBCCDD);
-
+    if(!emu_load_bin(bin))
+    {
+        
+        return 1;
+    }
     // 复位
     dut.rst = 1;
     dut.clk = 0; dut.eval();
@@ -85,35 +145,80 @@ static uint32_t dbgpc= 0;
     dut.rst = 0;
 
     // 运行到 ebreak
-    int maxcycle = 1000;
-    int cycle = 0;
-    while (!is_ebreak && cycle < maxcycle) {
+    long long maxcycle = 50000000000ll;
+    long long cycle = 0;
+    int end = 0;
+    int is_diff = 0;
+    uint32_t dut_regs[16];
+    while (!(is_ebreak &&end)&& (cycle < maxcycle)) {
         dut.clk = 1; dut.eval();
         dut.clk = 0; dut.eval();
+        inst_cycle(&end);
+        for (int i = 0; i < 16; i++) {
+            dut.dbg_raddr = i;
+            dut.eval();
+            dut_regs[i] = (uint32_t)dut.dbg_rdata;
+        }
+        
+        if(get_pc() != dut.pc){
+            printf("PC different: dut.pc = 0x%08x, ref.pc = 0x%08x\n", (uint32_t)dut.pc, get_pc());
+            is_diff = 1;
+        }
+        if(check_regs(dut_regs, get_ref())) {
+            is_diff = 1;
+        }
+        if(is_ebreak != end){
+            printf("ebreak different: dut.end = %d, ref.end = %d\n", is_ebreak, end);
+            is_diff = 1;
+        }
         cycle++;
+        sim_cycle++;
+        if(is_diff){
+            break;
+        }
     }
-
-    if (is_ebreak) {
-        printf("ebreak at pc = 0x%08x, cycles = %d\n", dbgpc, cycle);
-    } else {
-        printf("max cycle reached: pc = 0x%08x\n", (uint32_t)dut.pc);
+    if (!is_diff && is_ebreak && end) {
+        uint8_t *ref_mem = get_mem();
+        if (memcmp(mem, ref_mem, mem_size) != 0) {
+            for (uint32_t i = 0; i < mem_size; i++) {
+                if (mem[i] != ref_mem[i]) {
+                    printf("mem different at 0x%08x: dut=0x%02x ref=0x%02x\n",
+                           mem_base + i, mem[i], ref_mem[i]);
+                    break;
+                }
+            }
+            is_diff = 1;
+        }
     }
-
-    // 打印寄存器
+int ret  = 1;
+    if (is_diff) {
+        printf("HIT BAD TRAP\n");
+    }
+        else if(is_ebreak && end){
+            
+            dut.dbg_raddr = 10;
+        dut.eval();
+            if(dut.dbg_rdata == 0x0){
+                printf("HIT GOOD TRAP\n");
+                ret = 0;
+            }
+            else{
+                printf("HIT BAD TRAP\n");
+            }
+        }
+        else {
+            
+    printf("max cycle reached: pc = 0x%08x\n", (uint32_t)dut.pc);
+        }
     for (int i = 1; i <= 15; i++) {
         dut.dbg_raddr = i;
         dut.eval();
         printf("x%-2d = 0x%08x\n", i, (uint32_t)dut.dbg_rdata);
     }
-
-    // 打印内存
-    printf("mem[0x80000200] = 0x%08x\n", (uint32_t)pmem_read(0x80000200));
-    printf("mem[0x80000204] = 0x%08x\n", (uint32_t)pmem_read(0x80000204));
-    printf("mem[0x80000208] = 0x%08x\n", (uint32_t)pmem_read(0x80000208));
-
-    return 0;
+    printf("time = %llu us\n", get_time());
+    return ret;
 }
-
+  
     
     
 
