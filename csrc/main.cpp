@@ -150,10 +150,25 @@ static bool load_bin(const char *path) {
     int end = 0;
     int is_diff = 0;
     uint32_t dut_regs[16];
+   
+    long long inst_count = 0;
     while (!(is_ebreak &&end)&& (cycle < maxcycle)) {
-        dut.clk = 1; dut.eval();
-        dut.clk = 0; dut.eval();
+        bool will_commit =  (dut.next_state != 0b10 && dut.inst_valid);
+             
+
+
+    
+    dut.clk = 1;
+    dut.eval();
+
+    dut.clk = 0;
+    dut.eval();
+
+    
+    if (will_commit) {
+        
         inst_cycle(&end);
+        inst_count++;
         for (int i = 0; i < 16; i++) {
             dut.dbg_raddr = i;
             dut.eval();
@@ -171,11 +186,16 @@ static bool load_bin(const char *path) {
             printf("ebreak different: dut.end = %d, ref.end = %d\n", is_ebreak, end);
             is_diff = 1;
         }
+        
+    }
+
         cycle++;
         sim_cycle++;
         if(is_diff){
             break;
         }
+        
+        
     }
     if (!is_diff && is_ebreak && end) {
         uint8_t *ref_mem = get_mem();
@@ -216,6 +236,7 @@ int ret  = 1;
         printf("x%-2d = 0x%08x\n", i, (uint32_t)dut.dbg_rdata);
     }
     printf("time = %llu us\n", get_time());
+    printf("IPC = %.2f\n", (double)inst_count / cycle);
     return ret;
 }
   

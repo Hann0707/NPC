@@ -4,15 +4,16 @@ module NPC(
 
     
     output [31:0] pc,          
-    input  [31:0] inst,        
+    input [31:0] ifu_rdata,
+    output [31:0] ifu_raddr,
 
     
-    output [31:0] mem_addr,    
-    output [31:0] mem_wdata,   
-    output [7:0]  mem_wmask,   
-    output        mem_read,
-    output        mem_write,
-    input  [31:0] mem_rdata,   
+    output [31:0] lsu_addr,    
+    output [31:0] lsu_wdata,   
+    output [7:0]  lsu_wmask,   
+    output        lsu_read,
+    output        lsu_write,
+    input  [31:0] lsu_rdata,   
 
     
     input  [4:0]  dbg_raddr,
@@ -20,8 +21,18 @@ module NPC(
 
     
     output [31:0] npc,
-    output        is_ebreak
+    output        is_ebreak,
+    output inst_valid,
+    output [1:0] next_state,
+    output wen,
+    output reg ifu_reqValid,
+    input  reg ifu_respValid,
+    output reg lsu_reqValid,
+    input  reg lsu_respValid
+
 );
+
+wire [31:0] inst;
 
 wire [4:0] waddr;
 wire [4:0] raddr1;
@@ -29,7 +40,6 @@ wire [4:0] raddr2;
 wire [31:0] rdata1;
 wire [31:0] rdata2;
 
-wire wen;
 wire [31:0] wdata;
 
 wire [31:0] imm;
@@ -38,11 +48,12 @@ wire [1:0] alu_op;
 wire alu_src_imm;
 wire [31:0] alu_result;
 wire [31:0] memdata;
-
+wire mem_read;
 wire mem_unsigned;
 wire size;
 wire [31:0] jalr_pc;
 wire [1:0] wb_sel;
+
 
 IDU u_idu(
     .inst(inst),
@@ -54,19 +65,33 @@ IDU u_idu(
     .is_jalr(is_jalr),
     .alu_op(alu_op),
     .alu_src_imm(alu_src_imm),
-    .mem_write(mem_write),
-    .mem_read(mem_read),
+    .mem_write(lsu_write),
+    .mem_read(lsu_read),
     .mem_unsigned(mem_unsigned),
     .size(size),
     .wb_sel(wb_sel),
-    .is_ebreak(is_ebreak)
+    .is_ebreak(is_ebreak),
+    .inst_valid(inst_valid),
+    .next_state(next_state)
 );
 
 IFU u_ifu(
     .clk(clk),
     .rst(rst),
     .npc(npc),
-    .pc(pc)
+    .pc(pc),    
+    .ifu_raddr(ifu_raddr),
+    .ifu_rdata(ifu_rdata),
+    .inst(inst),
+    .inst_valid(inst_valid),
+    .mem_read(lsu_read),
+    .next_state(next_state)
+    .ifu_respValid(ifu_respValid),
+    .ifu_reqValid(ifu_reqValid),
+    .mem_write(lsu_write),
+    .lsu_respValid(lsu_respValid)
+    
+    
 );
 
 EXU u_exu(
@@ -110,15 +135,16 @@ LSU u_lsu(
     .rst(rst),
     .mem_addr(alu_result),
     .mem_wdata(rdata2),
-    .mem_write(mem_write),
-    .mem_read(mem_read),
+    .mem_write(lsu_write),
+    .mem_read(lsu_read),
     .mem_unsigned(mem_unsigned),
     .size(size),
-    .mem_rdata_i(mem_rdata),
+    .lsu_rdata(lsu_rdata),
     .mem_rdata_o(memdata),
-    .mem_addr_o(mem_addr),
-    .mem_wdata_o(mem_wdata),
-    .mem_wmask_o(mem_wmask)
+    .lsu_addr(lsu_addr),
+    .lsu_wdata(lsu_wdata),
+    .lsu_wmask(lsu_wmask)
+
 );
 
 endmodule
