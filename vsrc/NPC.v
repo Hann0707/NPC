@@ -25,10 +25,10 @@ module NPC(
     output inst_valid,
     output [1:0] next_state,
     output wen,
-    output reg ifu_reqValid,
-    input  reg ifu_respValid,
-    output reg lsu_reqValid,
-    input  reg lsu_respValid
+    output ifu_reqValid,
+    input  ifu_respValid,
+    output lsu_reqValid,
+    input  lsu_respValid
 
 );
 
@@ -85,11 +85,12 @@ IFU u_ifu(
     .inst(inst),
     .inst_valid(inst_valid),
     .mem_read(lsu_read),
-    .next_state(next_state)
+    .next_state(next_state),
     .ifu_respValid(ifu_respValid),
     .ifu_reqValid(ifu_reqValid),
     .mem_write(lsu_write),
-    .lsu_respValid(lsu_respValid)
+    .lsu_respValid(lsu_respValid),
+    .lsu_reqValid(lsu_reqValid)
     
     
 );

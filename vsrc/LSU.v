@@ -10,7 +10,8 @@ module LSU(//处理好输据的大小和符号扩展，总线发出
     input  size,                 // 1: word, 0: byte
     input  [31:0] lsu_rdata,   // 从内存读回的原始 32 位字
     output [31:0] mem_rdata_o, // 按 word/byte 选好并扩展后的结果
-
+    
+    
     output [31:0] lsu_addr,
     output [31:0] lsu_wdata,
     output [7:0]  lsu_wmask
@@ -28,7 +29,7 @@ wire [31:0] load_data = size ? word_data :
 
 assign mem_rdata_o = mem_read ? load_data : 32'b0;
 
-// ---------- store ----------
+
 
 
 //waddr 按 4 字节对齐，

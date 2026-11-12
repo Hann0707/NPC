@@ -12,7 +12,8 @@ module IFU(
     input ifu_respValid,
     output ifu_reqValid,
     input mem_write,
-    input lsu_respValid
+    input lsu_respValid,
+    output lsu_reqValid
 );
 
 reg [31:0] pc_reg;//PC寄存器

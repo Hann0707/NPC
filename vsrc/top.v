@@ -13,6 +13,10 @@ module top(
     
 );
 
+wire lsu_reqValid;
+    reg lsu_respValid;
+    wire ifu_reqValid;
+    reg ifu_respValid;
 import "DPI-C" function int pmem_read(input int raddr);
 import "DPI-C" function void pmem_write(input int waddr, input int wdata, input byte wmask);
 import "DPI-C" function void npc_ebreak(input int pc);
@@ -46,7 +50,7 @@ NPC u_npc(
     .is_ebreak(is_ebreak),
     .inst_valid(inst_valid),
     .next_state(next_state),
-    .wen(wen)
+    .wen(wen),
     .ifu_reqValid(ifu_reqValid),
     .ifu_respValid(ifu_respValid),
     .lsu_reqValid(lsu_reqValid),
@@ -55,23 +59,42 @@ NPC u_npc(
 );
 
 
-
-
-
-
-always @(posedge clk) begin
-    if (!rst && lsu_read && next_state == 2'b10) begin
-    lsu_rdata <= pmem_read(lsu_addr);
-end
-if(ifu_reqValid)begin
-    ifu_rdata <= rst ? 32'b0 : pmem_read(ifu_raddr);
-end
-    if (!rst && lsu_write) begin
-        pmem_write(lsu_addr, lsu_wdata, lsu_wmask);
+always@(posedge clk)begin
+    if(rst)begin
+        lsu_rdata <= 32'b0;
+        ifu_rdata <= 32'b0;
+        ifu_respValid <= 1'b0;
+        lsu_respValid <= 1'b0;
     end
-    if (!rst && is_ebreak) begin
+    else begin
+     if(ifu_reqValid)begin
+        ifu_rdata <= pmem_read(ifu_raddr);
+        
+    end
+    
+    
+    else if(lsu_reqValid)begin
+        if(lsu_read)begin
+            lsu_rdata <= pmem_read(lsu_addr);
+            
+        end
+        else if(lsu_write )begin
+            pmem_write(lsu_addr, lsu_wdata, lsu_wmask);
+            
+        end
+    end
+    else if (!rst && is_ebreak) begin
         npc_ebreak(pc);
     end
+    ifu_respValid <= ifu_reqValid;
+lsu_respValid <= lsu_reqValid;
+    end
+
+    
 end
+
+
+
+
 
 endmodule
