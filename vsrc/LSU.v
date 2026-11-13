@@ -1,4 +1,6 @@
-module LSU(//处理好输据的大小和符号扩展，总线发出   
+module LSU #(
+    parameter RANDOM_DELAY = 0
+)(//处理好输据的大小和符号扩展，总线发出
     input  clk,
     input  rst,
 
@@ -14,8 +16,21 @@ module LSU(//处理好输据的大小和符号扩展，总线发出
     
     output [31:0] lsu_addr,
     output [31:0] lsu_wdata,
-    output [7:0]  lsu_wmask
+    output [7:0]  lsu_wmask,
+    output lsu_send_ok
 );
+
+// 这是 CPU 内部的测试允许条件，不是存储器的 ready 信号。
+reg [7:0] lsu_lfsr;
+always @(posedge clk) begin
+    if (rst)
+        lsu_lfsr <= 8'hA5;
+    else
+        lsu_lfsr <= {lsu_lfsr[6:0],
+            lsu_lfsr[7] ^ lsu_lfsr[5] ^ lsu_lfsr[4] ^ lsu_lfsr[3]};
+end
+
+assign lsu_send_ok = (RANDOM_DELAY == 0) || (lsu_lfsr[1:0] == 2'b00);
 
 wire [1:0] byte_off = mem_addr[1:0];
 

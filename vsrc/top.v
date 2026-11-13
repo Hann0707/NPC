@@ -1,4 +1,6 @@
-module top(
+module top #(
+    parameter RANDOM_DELAY = 0
+)(
     input clk,
     input rst,
     output [31:0] npc,
@@ -32,7 +34,7 @@ wire [31:0] mem_rdata_o;
 wire [31:0] mem_addr;
 wire [31:0] mem_wdata;
 
-NPC u_npc(
+NPC #(.RANDOM_DELAY(RANDOM_DELAY)) u_npc(
     .clk(clk),
     .rst(rst),
     .pc(pc),

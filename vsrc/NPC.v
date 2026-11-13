@@ -1,4 +1,6 @@
-module NPC(
+module NPC #(
+    parameter RANDOM_DELAY = 0
+)(
     input clk,
     input rst,
 
@@ -33,6 +35,7 @@ module NPC(
 );
 
 wire [31:0] inst;
+wire lsu_send_ok;
 
 wire [4:0] waddr;
 wire [4:0] raddr1;
@@ -75,7 +78,7 @@ IDU u_idu(
     .next_state(next_state)
 );
 
-IFU u_ifu(
+IFU #(.RANDOM_DELAY(RANDOM_DELAY)) u_ifu(
     .clk(clk),
     .rst(rst),
     .npc(npc),
@@ -90,7 +93,8 @@ IFU u_ifu(
     .ifu_reqValid(ifu_reqValid),
     .mem_write(lsu_write),
     .lsu_respValid(lsu_respValid),
-    .lsu_reqValid(lsu_reqValid)
+    .lsu_reqValid(lsu_reqValid),
+    .lsu_send_ok(lsu_send_ok)
     
     
 );
@@ -131,7 +135,7 @@ RegisterFile #(5, 32) u_regfile(
     .dbg_rdata(dbg_rdata)
 );
 
-LSU u_lsu(
+LSU #(.RANDOM_DELAY(RANDOM_DELAY)) u_lsu(
     .clk(clk),
     .rst(rst),
     .mem_addr(alu_result),
@@ -144,7 +148,8 @@ LSU u_lsu(
     .mem_rdata_o(memdata),
     .lsu_addr(lsu_addr),
     .lsu_wdata(lsu_wdata),
-    .lsu_wmask(lsu_wmask)
+    .lsu_wmask(lsu_wmask),
+    .lsu_send_ok(lsu_send_ok)
 
 );
 
