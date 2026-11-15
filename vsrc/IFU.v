@@ -96,7 +96,7 @@ end
 
 always @(posedge clk) begin
     if (rst)
-        pc_reg <= 32'h80000000;
+        pc_reg <= 32'h30000000;
     else if (inst_valid)
         pc_reg <= npc;
 end
@@ -107,18 +107,12 @@ end
     assign lsu_reqValid = !rst && lsu_send_ok &&
         (((state == WAIT) && ifu_respValid && (mem_read || mem_write)) ||
          (state == lsu_send));
-
-    
-
-    
-    
-    
 //end
 assign ifu_raddr = pc_reg;//发给指令存储器的读地址，本设计中等于pc_reg
 assign pc = pc_reg;//当前pc，给cpu内部用 比如pc+4
 assign inst = ifu_rdata;//指令存储器读出的指令，给cpu内部用
 assign inst_valid =!rst &&((state == WAIT && ifu_respValid && !(mem_read || mem_write)) ||(state == load_wait && lsu_respValid));
 
-//指令有效信号，给cpu内部用
+
 
 endmodule

@@ -9,7 +9,8 @@ module RegisterFile #(ADDR_WIDTH = 1, DATA_WIDTH = 1) (
   output [31:0] rdata2,
   input wen,
   input  [4:0]  dbg_raddr,
-  output [31:0] dbg_rdata
+  output [31:0] dbg_rdata,
+  output [31:0] a0_value
 
 );
 
@@ -24,5 +25,6 @@ module RegisterFile #(ADDR_WIDTH = 1, DATA_WIDTH = 1) (
   assign rdata1 = (raddr1 ==0) ? {DATA_WIDTH{1'b0}}:rf[raddr1];
   assign rdata2 = (raddr2 ==0) ? {DATA_WIDTH{1'b0}}:rf[raddr2];
   assign dbg_rdata = (dbg_raddr ==0) ? {DATA_WIDTH{1'b0}}:rf[dbg_raddr];
+  assign a0_value = rf[10];
   endmodule
   

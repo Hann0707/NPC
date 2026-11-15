@@ -27,25 +27,26 @@ reg [31:0] ifu_rdata;
 wire [31:0] lsu_addr;
 wire [31:0] lsu_wdata;
 wire [7:0]  lsu_wmask;
-wire        lsu_read;
+wire        lsu_read = lsu_reqValid && !lsu_write;
 wire        lsu_write;
+assign lsu_wmask[7:4] = 4'b0;
 reg [31:0] lsu_rdata;
 wire [31:0] mem_rdata_o;
 wire [31:0] mem_addr;
 wire [31:0] mem_wdata;
 
 NPC #(.RANDOM_DELAY(RANDOM_DELAY)) u_npc(
-    .clk(clk),
-    .rst(rst),
+    .clock(clk),
+    .reset(rst),
     .pc(pc),
-    .ifu_raddr(ifu_raddr),
-    .ifu_rdata(ifu_rdata),
-    .lsu_addr(lsu_addr),
-    .lsu_wdata(lsu_wdata),
-    .lsu_wmask(lsu_wmask),
-    .lsu_read(lsu_read),
-    .lsu_write(lsu_write),
-    .lsu_rdata(lsu_rdata),
+    .io_ifu_addr(ifu_raddr),
+    .io_ifu_rdata(ifu_rdata),
+    .io_lsu_addr(lsu_addr),
+    .io_lsu_wdata(lsu_wdata),
+    .io_lsu_wmask(lsu_wmask[3:0]),
+    .io_lsu_size(),
+    .io_lsu_wen(lsu_write),
+    .io_lsu_rdata(lsu_rdata),
     .dbg_raddr(dbg_raddr),
     .dbg_rdata(dbg_rdata),
     .npc(npc),
@@ -53,10 +54,10 @@ NPC #(.RANDOM_DELAY(RANDOM_DELAY)) u_npc(
     .inst_valid(inst_valid),
     .next_state(next_state),
     .wen(wen),
-    .ifu_reqValid(ifu_reqValid),
-    .ifu_respValid(ifu_respValid),
-    .lsu_reqValid(lsu_reqValid),
-    .lsu_respValid(lsu_respValid)
+    .io_ifu_reqValid(ifu_reqValid),
+    .io_ifu_respValid(ifu_respValid),
+    .io_lsu_reqValid(lsu_reqValid),
+    .io_lsu_respValid(lsu_respValid)
 
 );
 

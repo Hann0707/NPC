@@ -1,38 +1,59 @@
+`ifndef NPC_RANDOM_DELAY
+`define NPC_RANDOM_DELAY 0
+`endif
 module NPC #(
-    parameter RANDOM_DELAY = 0
+    parameter RANDOM_DELAY = `NPC_RANDOM_DELAY
 )(
-    input clk,
-    input rst,
-
-    
-    output [31:0] pc,          
-    input [31:0] ifu_rdata,
-    output [31:0] ifu_raddr,
-
-    
-    output [31:0] lsu_addr,    
-    output [31:0] lsu_wdata,   
-    output [7:0]  lsu_wmask,   
-    output        lsu_read,
-    output        lsu_write,
-    input  [31:0] lsu_rdata,   
-
-    
+    input         clock,
+    input         reset,
+    output        io_ifu_reqValid,
+    output [31:0] io_ifu_addr,
+    input         io_ifu_respValid,
+    input  [31:0] io_ifu_rdata,
+    output        io_lsu_reqValid,
+    output [31:0] io_lsu_addr,
+    output [1:0]  io_lsu_size,
+    output        io_lsu_wen,
+    output [31:0] io_lsu_wdata,
+    output [3:0]  io_lsu_wmask,
+    input         io_lsu_respValid,
+    input  [31:0] io_lsu_rdata,
     input  [4:0]  dbg_raddr,
     output [31:0] dbg_rdata,
-
-    
-    output [31:0] npc,
-    output        is_ebreak,
-    output inst_valid,
-    output [1:0] next_state,
-    output wen,
-    output ifu_reqValid,
-    input  ifu_respValid,
-    output lsu_reqValid,
-    input  lsu_respValid
-
+    output [31:0] pc, npc,
+    output        is_ebreak, inst_valid, wen,
+    output [1:0]  next_state
 );
+
+// 内部信号保留原名；CPU 对外接口采用 SoC 规范。
+wire clk = clock;
+wire rst = reset;
+
+wire [31:0] a0_value;
+import "DPI-C" function void is_ebreak_dpi(input int trap_pc, input int trap_a0);
+always @(posedge clk) begin
+    if (!rst && is_ebreak)
+        is_ebreak_dpi(pc, a0_value);
+end
+wire [31:0] ifu_rdata = io_ifu_rdata;
+wire [31:0] ifu_raddr;
+wire [31:0] lsu_addr, lsu_wdata;
+wire [7:0] lsu_wmask;
+wire [1:0] lsu_size;
+wire lsu_read, lsu_write;
+wire [31:0] lsu_rdata = io_lsu_rdata;
+wire ifu_reqValid, lsu_reqValid;
+wire ifu_respValid = io_ifu_respValid;
+wire lsu_respValid = io_lsu_respValid;
+
+assign io_ifu_reqValid = ifu_reqValid;
+assign io_ifu_addr = ifu_raddr;
+assign io_lsu_reqValid = lsu_reqValid;
+assign io_lsu_addr = lsu_addr;
+assign io_lsu_size = lsu_size;
+assign io_lsu_wen = lsu_write;
+assign io_lsu_wdata = lsu_wdata;
+assign io_lsu_wmask = lsu_wmask[3:0];
 
 wire [31:0] inst;
 wire lsu_send_ok;
@@ -132,7 +153,8 @@ RegisterFile #(5, 32) u_regfile(
     .rdata2(rdata2),
     .wen(wen),
     .dbg_raddr(dbg_raddr),
-    .dbg_rdata(dbg_rdata)
+    .dbg_rdata(dbg_rdata),
+    .a0_value(a0_value)
 );
 
 LSU #(.RANDOM_DELAY(RANDOM_DELAY)) u_lsu(
@@ -149,6 +171,7 @@ LSU #(.RANDOM_DELAY(RANDOM_DELAY)) u_lsu(
     .lsu_addr(lsu_addr),
     .lsu_wdata(lsu_wdata),
     .lsu_wmask(lsu_wmask),
+    .lsu_size(lsu_size),
     .lsu_send_ok(lsu_send_ok)
 
 );

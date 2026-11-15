@@ -17,6 +17,7 @@ module LSU #(
     output [31:0] lsu_addr,
     output [31:0] lsu_wdata,
     output [7:0]  lsu_wmask,
+    output [1:0]  lsu_size,
     output lsu_send_ok
 );
 
@@ -53,6 +54,8 @@ assign mem_rdata_o = mem_read ? load_data : 32'b0;
 wire [31:0] store_data = size ? mem_wdata : (mem_wdata << (byte_off * 8));
 wire [7:0]  store_mask = size ? 8'h0F : (8'h01 << byte_off);
 
+// IDU 当前只支持 byte 和 word；半字编码留给未来的指令支持。
+assign lsu_size  = size ? 2'b10 : 2'b00;
 assign lsu_addr  = mem_addr;
 assign lsu_wdata = store_data;
 assign lsu_wmask = store_mask;
