@@ -5,6 +5,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <stdio.h>
+#include <nvboard.h>
+#define k 10
+void nvboard_bind_all_pins(VSimTop *top);
+
 uint8_t flash_mem [16 * 1024 * 1024] = {0};
 bool is_ebreak = false;
 uint32_t a0 = 0;
@@ -41,41 +45,76 @@ static bool load_bin(const char *path){
 int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
     VSimTop dut;
+   
     const char *bin = (argc > 1) ? argv[1] : "flash.bin";
     if (!load_bin(bin)) {
         fprintf(stderr, "Failed to load %s\n", bin);
         return 1;
     }
+    nvboard_bind_all_pins(&dut);
+    nvboard_init();
     dut.clock = 0;
     dut.cpuClock = 0;
     dut.reset = 1;
     dut.coreSel = 0;
     dut.externalPins_mygpio_in = 0;
     dut.externalPins_uart0_rx = 1;
-    for (uint64_t cycle = 0; cycle < 500000000ULL && !Verilated::gotFinish(); ++cycle) {
-        if (cycle == 100) dut.reset = 0;
-        dut.clock = 0;
-        dut.cpuClock = 0;
+    int PLL_k = 0;
+    for (uint64_t cycle = 0; cycle < 500000000000ULL ; ++cycle) {
+        if (cycle == 100ull*k) dut.reset = 0;
+        
+        dut.cpuClock = !dut.cpuClock;
+        PLL_k ++;
+        bool soc_rising = false;
+        if (PLL_k == k) {
+            bool old_clock = dut.clock;
+            dut.clock = !dut.clock;
+            PLL_k = 0;
+
+           
+            soc_rising = !old_clock && dut.clock;
+    }
         dut.eval();
-        dut.clock = 1;
-        dut.cpuClock = 1;
+        if(soc_rising){
+            nvboard_update();
+        }
+        soc_rising = false;
+        dut.cpuClock = !dut.cpuClock;
+        PLL_k++;
+        if (PLL_k == k) {
+            bool old_clock = dut.clock;
+            dut.clock = !dut.clock;
+            PLL_k = 0;
+
+           
+            soc_rising = !old_clock && dut.clock;
+    }
         dut.eval();
+        if(soc_rising){
+            nvboard_update();
+        }
         if (is_ebreak) break;
     }
     dut.final();
     if (is_ebreak) {
         if (a0 == 0) {
             printf("HIT GOOD TRAP at pc = 0x%08x\n", (unsigned)pc);
-            return 0;
+           
         }
-        else fprintf(stderr, "HIT BAD TRAP at pc = 0x%08x, a0 = 0x%08x\n",
+        else {fprintf(stderr, "HIT BAD TRAP at pc = 0x%08x, a0 = 0x%08x\n",
                 (unsigned)pc, (unsigned)a0);
-        return 1;
+                return 1;
+        }
     }
     else{
         printf("fail\n");
         return 1;
     }
+    while (true) {
+    nvboard_update();
+}
+    
+    
    
 
 

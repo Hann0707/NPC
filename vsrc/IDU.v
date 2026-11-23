@@ -15,7 +15,9 @@ module IDU(
     output alu_src_imm,
     output is_ebreak,
     input inst_valid,
-    input [1:0] next_state
+    input [1:0] next_state,
+    output is_csrrs
+    
 );
 wire[6:0] opcode = inst[6:0];
 wire[2:0] funct3 = inst[14:12];
@@ -32,14 +34,15 @@ wire [31:0] S_imm;
 wire I_type = is_addi | is_jalr | is_lw | is_lbu;
 wire U_type = is_lui;
 wire S_type = is_sw | is_sb;
-
+wire csr_read = is_csrrs && (rs1 == 5'd0);
+assign is_csrrs = (inst[6:0] == 7'b1110011) &&(inst[14:12] == 3'b010);
 assign rd = inst[11:7];
 assign rs1 = inst[19:15];
 assign rs2 = inst[24:20];
 assign I_imm = {{21{inst[31]}},inst[30:20]};
 assign imm = I_type ? I_imm : (U_type ? U_imm : S_imm);
 assign U_imm = {inst[31:12],12'b0};
-assign wb_sel = is_jalr ? 2'b10 : ((is_addi | is_lui |is_add) ? 2'b00 : 2'b01);
+assign wb_sel = is_csrrs?2'b11:(is_jalr ? 2'b10 : ((is_addi | is_lui |is_add) ? 2'b00 : 2'b01));
 assign is_ebreak = inst_valid && (opcode == 7'b1110011) && (funct3 == 3'b000) && (inst[31:20] == 12'b000000000001);
 assign S_imm = {{21{inst[31]}},inst[30:25],inst[11:7]};
 assign mem_write =  (is_sw | is_sb);
@@ -57,7 +60,7 @@ assign size = (is_lw | is_sw) ? 1'b1 : 1'b0; //1:word, 0:byte
   assign is_lbu = (opcode == 7'b0000011) & (funct3 == 3'b100);
   assign is_sb = (opcode == 7'b0100011) & (funct3 == 3'b000);
 
-  assign reg_wen = inst_valid &&(is_addi | is_jalr | is_lui | is_add | is_lw | is_lbu);
+  assign reg_wen = inst_valid &&(is_addi | is_jalr | is_lui | is_add | is_lw | is_lbu | is_csrrs);
   assign alu_op = (is_addi | is_jalr |is_add | is_lw | is_lbu| is_sb|is_sw) ? 2'b01 : 2'b00;//00lui, 01加法
   assign alu_src_imm = (is_addi | is_jalr | is_lui | is_lw | is_lbu| is_sb|is_sw) ? 1'b1 : 1'b0;//第二操作数是imm
 

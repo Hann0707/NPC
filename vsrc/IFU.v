@@ -55,6 +55,7 @@ always @(posedge clk) begin
     end
 end
 
+
 //第二段：状态转移逻辑
 always @(*) begin
     case(state)

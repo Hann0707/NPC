@@ -28,13 +28,36 @@ module NPC #(
 // 内部信号保留原名；CPU 对外接口采用 SoC 规范。
 wire clk = clock;
 wire rst = reset;
+reg [63:0] clkcycle;
+reg [63:0] inst_count;
+always@(posedge clk) begin
+  if(rst) inst_count <= 64'd0;
+  else if(inst_valid) begin
+    inst_count <= inst_count +1'b1;
+  end
+end
+always @(posedge clk) begin
+    if (rst)
+        clkcycle <= 64'd0;
+    else
+        clkcycle <= clkcycle + 64'd1;
+end
+
 
 wire [31:0] a0_value;
+`ifndef SYNTHESIS
 import "DPI-C" function void is_ebreak_dpi(input int trap_pc, input int trap_a0);
 always @(posedge clk) begin
-    if (!rst && is_ebreak)
+    
+    if (!rst && is_ebreak)begin
+        $display("cycles = %0d, instructions = %0d",
+         clkcycle + 64'd1, inst_count + 64'd1);
+
+        
         is_ebreak_dpi(pc, a0_value);
+    end
 end
+`endif
 wire [31:0] ifu_rdata = io_ifu_rdata;
 wire [31:0] ifu_raddr;
 wire [31:0] lsu_addr, lsu_wdata;
@@ -77,8 +100,18 @@ wire mem_unsigned;
 wire size;
 wire [31:0] jalr_pc;
 wire [1:0] wb_sel;
-
-
+reg [31:0] csr_rdata;
+wire [11:0] csr_addr = inst[31:20];
+wire is_csrrs;
+always@(*)begin
+  case(csr_addr)
+    12'hf11:csr_rdata = 32'h79737978;
+    12'hf12:csr_rdata = 32'h05f642ee;
+    12'hb00:csr_rdata = clkcycle[31:0];
+    12'hb80:csr_rdata = clkcycle[63:32];
+    default:csr_rdata = 32'd0;
+  endcase
+end
 IDU u_idu(
     .inst(inst),
     .rs1(raddr1),
@@ -96,7 +129,8 @@ IDU u_idu(
     .wb_sel(wb_sel),
     .is_ebreak(is_ebreak),
     .inst_valid(inst_valid),
-    .next_state(next_state)
+    .next_state(next_state),
+    .is_csrrs(is_csrrs)
 );
 
 IFU #(.RANDOM_DELAY(RANDOM_DELAY)) u_ifu(
@@ -140,7 +174,8 @@ WBU u_wbu(
     .npc(npc),
     .reg_wdata(wdata),
     .wb_sel(wb_sel),
-    .jalr_pc(jalr_pc)
+    .jalr_pc(jalr_pc),
+    .csr_rdata(csr_rdata)
 );
 
 RegisterFile #(5, 32) u_regfile(
